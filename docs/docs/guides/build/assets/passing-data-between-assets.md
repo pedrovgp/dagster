@@ -89,6 +89,26 @@ The downsides of this approach are:
 - The I/O manager approach is less flexible should you need to customize how data is read or written to storage
 - Some decisions may be made by the I/O manager for you, such as naming conventions that can be hard to override.
 
+### Static type-annotation checking for I/O manager dependencies \{#static-type-checking}
+
+When an upstream asset is passed as a parameter, Dagster connects the two assets by matching the **parameter name** to the **upstream asset's name**, not by an actual Python function call or reference. Because of that, a type checker like mypy or pyright can't see the connection between `people()`'s return type annotation and `combined_data()`'s `people` parameter annotation — from the type checker's point of view, they're two unrelated functions.
+
+To catch this kind of mistake, Dagster validates type-annotation compatibility across every resolved asset dependency edge as soon as the asset graph is built (for example, when running `dagster dev`, materializing assets, or loading `Definitions` in tests) — before any run executes. If an upstream asset's return type is incompatible with a downstream asset's parameter type, Dagster raises a `DagsterInvalidDefinitionError` describing the mismatch:
+
+```python
+@asset
+def people() -> pd.DataFrame:
+    ...
+
+@asset
+def combined_data(people: str) -> pd.DataFrame:  # raises: `people` is annotated `str`, but the `people` asset returns `pd.DataFrame`
+    ...
+```
+
+This check uses the same assignability rules a type checker applies (for example, `int` is compatible with a parameter annotated `float`, and `None` is compatible with a parameter annotated `Optional[...]`), and it respects the `strict_optional` (mypy) or `strictParameterNoneValue` (pyright) setting already configured in your project's `pyproject.toml`. It's intentionally conservative: unrecognized or complex typing constructs (`TypeVar`, `Protocol`, forward references, and similar) are treated as compatible rather than flagged, so the check only blocks unambiguous mismatches.
+
+This check is enabled by default. To disable it, set the `DAGSTER_STATIC_ASSET_TYPE_CHECK` environment variable to `"0"`.
+
 ## Avoid passing data between assets by combining assets \{#combine-assets}
 
 In some cases, you may find that you can avoid passing data between assets by

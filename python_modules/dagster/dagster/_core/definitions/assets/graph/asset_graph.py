@@ -7,6 +7,9 @@ from dagster._core.definitions.asset_checks.asset_check_spec import AssetCheckKe
 from dagster._core.definitions.asset_key import AssetOrCheckKey
 from dagster._core.definitions.assets.definition.asset_spec import AssetExecutionType, AssetSpec
 from dagster._core.definitions.assets.definition.assets_definition import AssetsDefinition
+from dagster._core.definitions.assets.graph.asset_type_compatibility import (
+    validate_asset_graph_type_annotations,
+)
 from dagster._core.definitions.assets.graph.base_asset_graph import (
     AssetCheckNode,
     AssetJobKey,
@@ -262,6 +265,8 @@ class AssetGraph(BaseAssetGraph[AssetNode]):
             for ad in assets_defs
             for key in ad.keys
         }
+
+        validate_asset_graph_type_annotations(asset_nodes_by_key)
 
         return (asset_nodes_by_key, assets_defs_by_check_key)
 
